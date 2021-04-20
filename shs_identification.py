@@ -153,7 +153,7 @@ def count_number_of_connections(node_index, links_df):
     ].shape[0]
 
 
-def unitarian_disconnection_price(node_index, nodes_df, shs_characteristics):
+def shs_price_of_node(node_index, nodes_df, shs_characteristics):
     """
     This function returns the price of the shs coresponding to the building
     represented by the node node_index of nodes_df.
@@ -280,8 +280,10 @@ def nodes_on_branch(stam_node, branch_first_nodes, links_df, nodes_in_branch):
     for branch_node in branch_first_nodes:
         if branch_node not in nodes_in_branch:
             nodes_in_branch.append(branch_node)
-    if len(branch_first_nodes) == 0:
-        return nodes_in_branch
+        if not are_nodes_connected(stam_node, branch_node, links_df):
+            raise Exception(
+                f'Error in excecution of nodes_on_branch, nodes '
+                + f'{stam_node} and {branch_node} are not connected')
 
     for node in branch_first_nodes:
         neighbors = neighoring_nodes(
@@ -290,4 +292,75 @@ def nodes_on_branch(stam_node, branch_first_nodes, links_df, nodes_in_branch):
         downstream_nodes = [node for node in neighbors if (
             node != stam_node and node not in nodes_in_branch)]
         nodes_in_branch += downstream_nodes
-        return nodes_on_branch(node, downstream_nodes, links_df, nodes_in_branch)
+        res = nodes_on_branch(node, downstream_nodes,
+                              links_df, nodes_in_branch)
+
+    if len(branch_first_nodes) > 0:
+        return res
+
+    return nodes_in_branch
+
+
+def nodes_and_links_to_discard(nodes_df,
+                               links_df,
+                               cable_price_per_meter,
+                               additional_price_for_connection_per_node,
+                               shs_characteristics):
+
+    links_to_remove = []
+    shs_nodes_selection = []
+
+    for link_index, link_row in links_df.iterrows():
+
+        list_nodes_in_cluster_a = nodes_on_branch(
+            stam_node=link_row['node_b'],
+            branch_first_nodes=[link_row['node_a']],
+            links_df=links_df,
+            nodes_in_branch=[])
+
+    # Cluster A
+        df_links_in_cluster_a = links_df[links_df.node_a.isin(
+            list_nodes_in_cluster_a) | links_df.node_b.isin(list_nodes_in_cluster_a)]
+
+        price_shs_in_cluster_a = 0
+
+        for node_a in list_nodes_in_cluster_a:
+            price_shs_in_cluster_a += shs_price_of_node(
+                node_a, nodes_df=nodes_df, shs_characteristics=shs_characteristics)
+
+        price_df_links_in_cluster_a = df_links_in_cluster_a.sum()[
+            'distance'] * cable_price_per_meter
+
+        cost_of_disconnecting_cluster_a = price_shs_in_cluster_a - \
+            (price_df_links_in_cluster_a +
+             additional_price_for_connection_per_node * len(list_nodes_in_cluster_a))
+
+        # Cluster B
+
+        list_nodes_in_cluster_b = [
+            node for node in nodes_df.index if node not in list_nodes_in_cluster_a]
+
+        df_links_in_cluster_b = links_df[links_df.node_b.isin(
+            list_nodes_in_cluster_b) | links_df.node_b.isin(list_nodes_in_cluster_b)]
+
+        price_shs_in_cluster_b = 0
+
+        for node_b in list_nodes_in_cluster_b:
+            price_shs_in_cluster_b += shs_price_of_node(
+                node_b, nodes_df=nodes_df, shs_characteristics=shs_characteristics)
+
+        price_df_links_in_cluster_b = df_links_in_cluster_b.sum()[
+            'distance'] * cable_price_per_meter
+
+        cost_of_disconnecting_cluster_b = price_shs_in_cluster_b - \
+            (price_df_links_in_cluster_b +
+             additional_price_for_connection_per_node * len(list_nodes_in_cluster_b))
+        if min(cost_of_disconnecting_cluster_a, cost_of_disconnecting_cluster_b) < 0:
+            if cost_of_disconnecting_cluster_a < cost_of_disconnecting_cluster_b:
+                shs_nodes_selection += list_nodes_in_cluster_a
+                links_to_remove += list(df_links_in_cluster_a.index)
+            else:
+                shs_nodes_selection += list_nodes_in_cluster_b
+                links_to_remove += list(df_links_in_cluster_b.index)
+
+    return set(shs_nodes_selection), set(links_to_remove)
