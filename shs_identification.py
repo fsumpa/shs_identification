@@ -213,8 +213,8 @@ def are_nodes_connected(node_a, node_b, links_df):
     """
     for index_link, row_link in links_df.iterrows():
         if ((row_link['node_a'] == node_a and row_link['node_b'] == node_b)
-                    or (row_link['node_a'] == node_b and row_link['node_b'] == node_a)
-                ):
+            or (row_link['node_a'] == node_b and row_link['node_b'] == node_a)
+            ):
             return True
     return False
 
@@ -244,3 +244,50 @@ def neighoring_nodes(node_index, links_df):
         if are_nodes_connected(node_index, other_node, links_df):
             neighboring_nodes.append(other_node)
     return neighboring_nodes
+
+
+def nodes_on_branch(stam_node, branch_first_nodes, links_df, nodes_in_branch):
+    """
+    This function recursively explores the branch of a tree and returns a list
+    of all the nodes on that branch.
+
+    Parameters
+    ----------
+
+    stam_node (str):
+        Index of the node at the stamm of the branch (the node is
+        not considered as part of the branch).
+    branch_first_nodes (list):
+        List of indices of the next nodes to be explored by the recursive
+        function.
+    links_df (pandas.DataFrame)
+            Pandas DataFrame containing the links connecting the network.
+            In the form
+                            node_a     node_b  distance
+            label                                 
+            node0, node1    node0  node1    2.2360
+            (node1, node2)  node0  node2    2.8284
+    nodes_in_branch (list):
+        List of nodes already explored by the recursive function (this list
+        contains the nodes identified on the branch and is completed at each
+        recursion step).
+
+    Output
+    ------
+        List of all the nodes on the branches originating at stam_node and
+        pointing toward the nodes in branch_first_nodes.
+    """
+    for branch_node in branch_first_nodes:
+        if branch_node not in nodes_in_branch:
+            nodes_in_branch.append(branch_node)
+    if len(branch_first_nodes) == 0:
+        return nodes_in_branch
+
+    for node in branch_first_nodes:
+        neighbors = neighoring_nodes(
+            node_index=node,
+            links_df=links_df)
+        downstream_nodes = [node for node in neighbors if (
+            node != stam_node and node not in nodes_in_branch)]
+        nodes_in_branch += downstream_nodes
+        return nodes_on_branch(node, downstream_nodes, links_df, nodes_in_branch)
