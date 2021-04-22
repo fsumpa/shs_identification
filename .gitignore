@@ -1,4 +1,4 @@
-venv_shs/*
+venv/*
 build/*
 dist/*
 .vscode/
