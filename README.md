@@ -1,1 +1,5 @@
-This repository contains a module for identifying teh mini-grid (MG) and the solar home system (SHS) area in the context of hybrif MG/SHS village electrification.
+This repository contains a module for identifying the mini-grid (MG) and the solar home system (SHS) area in the context of hybrid MG/SHS village electrification.
+
+The main function is nodes_and_links_to_discard, it enables to identify the nodes and links that could be discared in order to reduce the installation cost.
+
+The algorithm considers the minimum spanning tree (mst) connecting all nodes, a price per unit lenght provides the price associated with each link (cable). It then takes into account the load and max power required by each node to estimate the price of the shs for that node. Then, for each link of the mst, the algorithm determines the nodes and the links on each side of that link, which provides two clusters (written A and B). If the shs price associated with the nodes of the clusters is lower than the sum of an unitary price per nodes in the cluster and of the price associated with each links in the cluser, the link is discared together with all the nodes and links of the cluster.
